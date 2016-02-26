@@ -1102,7 +1102,8 @@ enum {
 	ERROR_PAGES,
 	CONFIG_TCP_NODELAY, /* Prepended CONFIG_ to avoid conflict with the socket
                            option typedef TCP_NODELAY */
-
+	CONFIG_SO_NOSIGNAL, /* Ditto with NO_SIGNAL */
+	
 	NUM_OPTIONS
 };
 
@@ -1172,6 +1173,7 @@ static struct mg_option config_options[] = {
     {"access_control_allow_origin", CONFIG_TYPE_STRING, "*"},
     {"error_pages", CONFIG_TYPE_DIRECTORY, NULL},
     {"tcp_nodelay", CONFIG_TYPE_BOOLEAN, "no"},
+	{"so_nosignal", CONFIG_TYPE_BOOLEAN, "no"},
 
     {NULL, CONFIG_TYPE_UNKNOWN, NULL}};
 
@@ -12108,6 +12110,24 @@ accept_new_connection(const struct socket *listener, struct mg_context *ctx)
 				       strerror(ERRNO));
 			}
 		}
+		
+		/*
+		 * Disable signalling
+		 */
+#ifdef SO_NOSIGPIPE
+		if (ctx && mg_strcasecmp(ctx->config[CONFIG_SO_NOSIGNAL], "yes") == 0) {
+			if (setsockopt(so.sock,
+						   SOL_SOCKET,
+						   SO_NOSIGPIPE,
+						   (SOCK_OPT_TYPE)&on,
+						   sizeof(on)) != 0) {
+				mg_cry(fc(ctx),
+					   "%s: setsockopt(SOL_SOCKET SO_NOSIGPIPE) failed: %s",
+					   __func__,
+					   strerror(ERRNO));
+			}
+		}
+#endif
 
 		if (ctx && ctx->config[REQUEST_TIMEOUT]) {
 			timeout = atoi(ctx->config[REQUEST_TIMEOUT]);
