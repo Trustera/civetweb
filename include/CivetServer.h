@@ -193,6 +193,15 @@ class CIVETWEB_API CivetWebSocketHandler
 };
 
 /**
+ * CivetCallbacks
+ *
+ * wrapper for mg_callbacks
+ */
+struct CIVETWEB_API CivetCallbacks : public mg_callbacks {
+	CivetCallbacks();
+};
+
+/**
  * CivetServer
  *
  * Basic class for embedded web server.  This has an URL mapping built-in.
@@ -207,14 +216,20 @@ class CIVETWEB_API CivetServer
 	 * It is good practice to call getContext() after this in case there
 	 * were errors starting the server.
 	 *
+	 * Note: CivetServer should not be used as a static instance in a Windows
+	 * DLL, since the constructor creates threads and the destructor joins
+	 * them again (creating/joining threads should not be done in static
+	 * constructors).
+	 *
 	 * @param options - the web server options.
 	 * @param callbacks - optional web server callback methods.
 	 *
 	 * @throws CivetException
 	 */
-	CivetServer(const char **options, const struct mg_callbacks *callbacks = 0);
+	CivetServer(const char **options,
+	            const struct CivetCallbacks *callbacks = 0);
 	CivetServer(std::vector<std::string> options,
-	            const struct mg_callbacks *callbacks = 0);
+	            const struct CivetCallbacks *callbacks = 0);
 
 	/**
 	 * Destructor

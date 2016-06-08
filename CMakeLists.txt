@@ -68,6 +68,10 @@ message(STATUS "Serve no static files - ${CIVETWEB_SERVE_NO_FILES}")
 option(CIVETWEB_DISABLE_CGI "Disables CGI, so theserver will not execute CGI scripts" OFF)
 message(STATUS "Disable CGI support - ${CIVETWEB_DISABLE_CGI}")
 
+# Disable caching
+option(CIVETWEB_DISABLE_CACHING "Disables caching, so that no timegm is used." OFF)
+message(STATUS "Disable caching support - ${CIVETWEB_DISABLE_CACHING}")
+
 # C++ wrappers
 option(CIVETWEB_ENABLE_CXX "Enables the C++ wrapper library" OFF)
 message(STATUS "C++ wrappers - ${CIVETWEB_ENABLE_CXX}")
@@ -89,9 +93,14 @@ option(CIVETWEB_ENABLE_LUA "Enable Lua CGIs" OFF)
 message(STATUS "Lua CGI support - ${CIVETWEB_ENABLE_LUA}")
 
 # Allow builds to complete with warnings (do not set -Werror)
-option(CIVETWEB_ALLOW_WARNINGS "Do not stop build if there are warnings" OFF)
+if (LINUX)
+# CivetWeb Linux support is stable: Builds must be free from warnings.
+  option(CIVETWEB_ALLOW_WARNINGS "Do not stop build if there are warnings" OFF)
+else()
+# CivetWeb Linux support for other systems is in a setup phase.
+  option(CIVETWEB_ALLOW_WARNINGS "Do not stop build if there are warnings" ON)
+endif()
 message(STATUS "Build if there are warnings - ${CIVETWEB_ALLOW_WARNINGS}")
-
 
 # Link to the shared LUA library
 cmake_dependent_option(
@@ -273,7 +282,9 @@ if (HAVE_C_FLAG_FSANITIZE_ADDRESS)
   add_c_compiler_flag(-static-asan DEBUG)
 endif()
 add_c_compiler_flag(-fstack-protector-all DEBUG)
-add_c_compiler_flag(-mwindows)
+if (MINGW)
+  add_c_compiler_flag(-mwindows)
+endif()
 
 # Coverage build type
 set(CMAKE_C_FLAGS_COVERAGE "${CMAKE_C_FLAGS_DEBUG}" CACHE STRING
@@ -314,7 +325,6 @@ if (CIVETWEB_ENABLE_CXX)
   add_cxx_compiler_flag(-Wall)
   add_cxx_compiler_flag(-Wextra)
   add_cxx_compiler_flag(-Wshadow)
-  add_cxx_compiler_flag(-Wsign-conversion)
   add_cxx_compiler_flag(-Wmissing-prototypes)
   add_cxx_compiler_flag(-Weverything)
   add_cxx_compiler_flag(/W4)
@@ -330,7 +340,6 @@ if (CIVETWEB_ENABLE_CXX)
   endif()
   add_cxx_compiler_flag(/WX)
   add_cxx_compiler_flag(-pedantic-errors)
-  add_cxx_compiler_flag(-Wzero-as-null-pointer-constant)
   add_cxx_compiler_flag(-fvisibility=hidden)
   add_cxx_compiler_flag(-fstack-protector-strong RELEASE)
   add_cxx_compiler_flag(-flto RELEASE)
@@ -340,7 +349,9 @@ if (CIVETWEB_ENABLE_CXX)
     add_cxx_compiler_flag(-static-asan DEBUG)
   endif()
   add_cxx_compiler_flag(-fstack-protector-all DEBUG)
-  add_cxx_compiler_flag(-mwindows)
+  if (MINGW)
+    add_cxx_compiler_flag(-mwindows)
+  endif()
   set(CMAKE_CXX_FLAGS_COVERAGE "${CMAKE_CXX_FLAGS_DEBUG}" CACHE STRING
       "Flags used by the C++ compiler during coverage builds."
       FORCE)
@@ -368,6 +379,9 @@ if (CIVETWEB_SERVE_NO_FILES)
 endif()
 if (CIVETWEB_DISABLE_CGI)
   add_definitions(-DNO_CGI)
+endif()
+if (CIVETWEB_DISABLE_CACHING)
+  add_definitions(-DNO_CACHING)
 endif()
 if (CIVETWEB_ENABLE_LUA)
   add_definitions(-DUSE_LUA)
@@ -400,14 +414,14 @@ add_subdirectory(src)
 include(CTest)
 if (BUILD_TESTING)
   # Check unit testing framework Version
-  set(CIVETWEB_CHECK_VERSION 0.9.14 CACHE STRING
+  set(CIVETWEB_CHECK_VERSION 0.10.0 CACHE STRING
     "The version of Check unit testing framework to build and include statically")
   set_property(CACHE CIVETWEB_CHECK_VERSION PROPERTY VALUE ${CIVETWEB_CHECK_VERSION})
   message(STATUS "Check Unit Testing Framework Version - ${CIVETWEB_CHECK_VERSION}")
   mark_as_advanced(CIVETWEB_CHECK_VERSION)
 
   # Check unit testing framework Verification Hash
-  set(CIVETWEB_CHECK_MD5_HASH 38263d115d784c17aa3b959ce94be8b8 CACHE STRING
+  set(CIVETWEB_CHECK_MD5_HASH 67a34c40b5bc888737f4e5ae82e9939f CACHE STRING
     "The hash of Check unit testing framework archive to be downloaded")
   set_property(CACHE CIVETWEB_CHECK_MD5_HASH PROPERTY VALUE ${CIVETWEB_CHECK_MD5_HASH})
   mark_as_advanced(CIVETWEB_CHECK_MD5_HASH)
@@ -425,7 +439,7 @@ set(CPACK_PACKAGE_VERSION_MINOR "${CIVETWEB_VERSION_MINOR}")
 set(CPACK_PACKAGE_VERSION_PATCH "${CIVETWEB_VERSION_PATCH}")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "A HTTP library and server")
 set(CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
-set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE.md")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.md")
 set(CPACK_STRIP_FILES TRUE)
 set(CPACK_PACKAGE_DEPENDS "openssl")
 if (CIVETWEB_ENABLE_LUA_SHARED)

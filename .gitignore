@@ -65,6 +65,10 @@ local.properties
 *.user
 *.sln.docstates
 
+# Text-mode IDE tools
+cscope.out
+tags
+
 # Build results
 
 [Dd]ebug/

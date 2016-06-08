@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015 the Civetweb developers
+/* Copyright (c) 2013-2016 the Civetweb developers
  * Copyright (c) 2004-2013 Sergey Lyubka
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -129,9 +129,9 @@ struct tuser_data {
 
 static int g_exit_flag = 0;         /* Main loop should exit */
 static char g_server_base_name[40]; /* Set by init_server_name() */
-static char *g_server_name;         /* Set by init_server_name() */
-static char *g_icon_name;           /* Set by init_server_name() */
-static char g_config_file[PATH_MAX] =
+static const char *g_server_name;   /* Set by init_server_name() */
+static const char *g_icon_name;     /* Set by init_server_name() */
+static char g_config_file_name[PATH_MAX] =
     "";                          /* Set by process_command_line_arguments() */
 static struct mg_context *g_ctx; /* Set by start_civetweb() */
 static struct tuser_data
@@ -439,18 +439,18 @@ set_option(char **options, const char *name, const char *value)
 }
 
 
-static void
+static int
 read_config_file(const char *config_file, char **options)
 {
 	char line[MAX_CONF_FILE_LINE_SIZE], *p;
 	FILE *fp = NULL;
 	size_t i, j, line_no = 0;
 
+	/* Open the config file */
 	fp = fopen(config_file, "r");
-
-	/* If config file was set in command line and open failed, die */
 	if (fp == NULL) {
-		die("Cannot open config file %s: %s", config_file, strerror(errno));
+		/* Failed to open the file. Keep errno for the caller. */
+		return 0;
 	}
 
 	/* Load config file settings first */
@@ -507,11 +507,12 @@ read_config_file(const char *config_file, char **options)
 
 		(void)fclose(fp);
 	}
+	return 1;
 }
 
 
 static void
-process_command_line_arguments(char *argv[], char **options)
+process_command_line_arguments(int argc, char *argv[], char **options)
 {
 	char *p;
 	size_t i, cmd_line_opts_start = 1;
@@ -520,31 +521,42 @@ process_command_line_arguments(char *argv[], char **options)
 #endif
 
 	/* Should we use a config file ? */
-	if (argv[1] != NULL && argv[1][0] != '-') {
-		snprintf(g_config_file, sizeof(g_config_file) - 1, "%s", argv[1]);
+	if ((argc > 1) && (argv[1] != NULL) && (argv[1][0] != '-')
+	    && (argv[1][0] != 0)) {
+		/* The first command line parameter is a config file name. */
+		snprintf(g_config_file_name,
+		         sizeof(g_config_file_name) - 1,
+		         "%s",
+		         argv[1]);
 		cmd_line_opts_start = 2;
 	} else if ((p = strrchr(argv[0], DIRSEP)) == NULL) {
-		/* No command line flags specified. Look where binary lives */
-		snprintf(g_config_file, sizeof(g_config_file) - 1, "%s", CONFIG_FILE);
+		/* No config file set. No path in arg[0] found.
+		 * Use default file name in the current path. */
+		snprintf(g_config_file_name,
+		         sizeof(g_config_file_name) - 1,
+		         "%s",
+		         CONFIG_FILE);
 	} else {
-		snprintf(g_config_file,
-		         sizeof(g_config_file) - 1,
+		/* No config file set. Path to exe found in arg[0].
+		 * Use default file name next to the executable. */
+		snprintf(g_config_file_name,
+		         sizeof(g_config_file_name) - 1,
 		         "%.*s%c%s",
 		         (int)(p - argv[0]),
 		         argv[0],
 		         DIRSEP,
 		         CONFIG_FILE);
 	}
-	g_config_file[sizeof(g_config_file) - 1] = 0;
+	g_config_file_name[sizeof(g_config_file_name) - 1] = 0;
 
 #ifdef CONFIG_FILE2
-	fp = fopen(g_config_file, "r");
+	fp = fopen(g_config_file_name, "r");
 
 	/* try alternate config file */
 	if (fp == NULL) {
 		fp = fopen(CONFIG_FILE2, "r");
 		if (fp != NULL) {
-			strcpy(g_config_file, CONFIG_FILE2);
+			strcpy(g_config_file_name, CONFIG_FILE2);
 		}
 	}
 	if (fp != NULL) {
@@ -553,7 +565,16 @@ process_command_line_arguments(char *argv[], char **options)
 #endif
 
 	/* read all configurations from a config file */
-	(void)read_config_file(g_config_file, options);
+	if (0 == read_config_file(g_config_file_name, options)) {
+		if (cmd_line_opts_start == 2) {
+			/* If config file was set in command line and open failed, die. */
+			/* Errno will still hold the error from fopen. */
+			die("Cannot open config file %s: %s",
+			    g_config_file_name,
+			    strerror(errno));
+		}
+		/* Otherwise: CivetWeb can work without a config file */
+	}
 
 	/* If we're under MacOS and started by launchd, then the second
 	   argument is process serial number, -psn_.....
@@ -594,7 +615,7 @@ init_server_name(int argc, const char *argv[])
 		if ((argv[i][0] == '-')
 		    && (0 == strcmp(argv[i] + 1,
 		                    main_config_options[OPTION_TITLE].name))) {
-			g_server_name = (char *)(argv[i + 1]);
+			g_server_name = (const char *)(argv[i + 1]);
 		}
 	}
 	g_icon_name = NULL;
@@ -602,7 +623,7 @@ init_server_name(int argc, const char *argv[])
 		if ((argv[i][0] == '-')
 		    && (0 == strcmp(argv[i] + 1,
 		                    main_config_options[OPTION_ICON].name))) {
-			g_icon_name = (char *)(argv[i + 1]);
+			g_icon_name = (const char *)(argv[i + 1]);
 		}
 	}
 }
@@ -820,7 +841,9 @@ start_civetweb(int argc, char *argv[])
 	char *options[2 * MAX_OPTIONS + 1];
 	int i;
 
-	/* Show system information and exit */
+	/* Start option -I:
+	 * Show system information and exit
+	 * This is very useful for diagnosis. */
 	if (argc > 1 && !strcmp(argv[1], "-I")) {
 		const char *version = mg_version();
 #if defined(_WIN32)
@@ -951,6 +974,23 @@ start_civetweb(int argc, char *argv[])
 #else
 		fprintf(stdout, "Other\n");
 #endif
+		/* Determine 32/64 bit data mode.
+		 * see https://en.wikipedia.org/wiki/64-bit_computing */
+		fprintf(stdout,
+		        "Data model: i:%u/%u/%u/%u, f:%u/%u/%u, c:%u/%u, "
+		        "p:%u, s:%u, t:%u\n",
+		        (unsigned)sizeof(short),
+		        (unsigned)sizeof(int),
+		        (unsigned)sizeof(long),
+		        (unsigned)sizeof(long long),
+		        (unsigned)sizeof(float),
+		        (unsigned)sizeof(double),
+		        (unsigned)sizeof(long double),
+		        (unsigned)sizeof(char),
+		        (unsigned)sizeof(wchar_t),
+		        (unsigned)sizeof(void *),
+		        (unsigned)sizeof(size_t),
+		        (unsigned)sizeof(time_t));
 
 		exit(EXIT_SUCCESS);
 	}
@@ -1017,7 +1057,7 @@ start_civetweb(int argc, char *argv[])
 	set_option(options, "document_root", ".");
 
 	/* Update config based on command line arguments */
-	process_command_line_arguments(argv, options);
+	process_command_line_arguments(argc, argv, options);
 
 	/* Make sure we have absolute paths for files and directories */
 	set_absolute_path(options, "document_root", argv[0]);
@@ -1052,14 +1092,19 @@ start_civetweb(int argc, char *argv[])
 	memset(&callbacks, 0, sizeof(callbacks));
 	callbacks.log_message = &log_message;
 	g_ctx = mg_start(&callbacks, &g_user_data, (const char **)options);
+
+	/* mg_start copies all options to an internal buffer.
+	 * The options data field here is not required anymore. */
 	for (i = 0; options[i] != NULL; i++) {
 		free(options[i]);
 	}
 
+	/* If mg_start fails, it returns NULL */
 	if (g_ctx == NULL) {
-		die("Failed to start Civetweb:\n%s",
-		    (g_user_data.first_message == NULL) ? "unknown reason"
-		                                        : g_user_data.first_message);
+		die("Failed to start %s:\n%s",
+		    g_server_name,
+		    ((g_user_data.first_message == NULL) ? "unknown reason"
+		                                         : g_user_data.first_message));
 	}
 }
 
@@ -1074,6 +1119,9 @@ stop_civetweb(void)
 
 
 #ifdef _WIN32
+/* Win32 has a small GUI.
+ * Define some GUI elements and Windows message handlers. */
+
 enum {
 	ID_ICON = 100,
 	ID_QUIT,
@@ -1104,6 +1152,7 @@ enum {
    text box ID. */
 	ID_FILE_BUTTONS_DELTA = 1000
 };
+
 
 static HICON hIcon;
 static SERVICE_STATUS ss;
@@ -1212,6 +1261,7 @@ SettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam)
 	(void)lParam;
 
 	switch (msg) {
+
 	case WM_CLOSE:
 		DestroyWindow(hDlg);
 		break;
@@ -1221,7 +1271,7 @@ SettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam)
 
 		case ID_SAVE:
 			EnableWindow(GetDlgItem(hDlg, ID_SAVE), FALSE);
-			if ((fp = fopen(g_config_file, "w+")) != NULL) {
+			if ((fp = fopen(g_config_file_name, "w+")) != NULL) {
 				save_config(hDlg, fp);
 				fclose(fp);
 				stop_civetweb();
@@ -1248,7 +1298,7 @@ SettingsDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam)
 			break;
 
 		case ID_RESET_FILE:
-			read_config_file(g_config_file, file_options);
+			read_config_file(g_config_file_name, file_options);
 			for (i = 0; default_options[i].name != NULL; i++) {
 				name = default_options[i].name;
 				value = default_options[i].default_value;
@@ -2112,7 +2162,7 @@ manage_service(int action)
 	char path[PATH_MAX + 20] = ""; /* Path to executable plus magic argument */
 	int success = 1;
 
-	descr.lpDescription = g_server_name;
+	descr.lpDescription = (LPSTR)g_server_name;
 
 	if ((hSCM = OpenSCManager(NULL,
 	                          NULL,
@@ -2178,10 +2228,11 @@ WindowProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	service_argv[1] = NULL;
 
 	memset(service_table, 0, sizeof(service_table));
-	service_table[0].lpServiceName = g_server_name;
+	service_table[0].lpServiceName = (LPSTR)g_server_name;
 	service_table[0].lpServiceProc = (LPSERVICE_MAIN_FUNCTION)ServiceMain;
 
 	switch (msg) {
+
 	case WM_CREATE:
 		if (__argv[1] != NULL && !strcmp(__argv[1], service_magic_argument)) {
 			start_civetweb(1, service_argv);
@@ -2192,6 +2243,7 @@ WindowProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			s_uTaskbarRestart = RegisterWindowMessage(TEXT("TaskbarCreated"));
 		}
 		break;
+
 	case WM_COMMAND:
 		switch (LOWORD(wParam)) {
 		case ID_QUIT:
@@ -2221,6 +2273,7 @@ WindowProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			break;
 		}
 		break;
+
 	case WM_USER:
 		switch (lParam) {
 		case WM_RBUTTONUP:
@@ -2261,12 +2314,14 @@ WindowProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			break;
 		}
 		break;
+
 	case WM_CLOSE:
 		stop_civetweb();
 		Shell_NotifyIcon(NIM_DELETE, &TrayIcon);
 		g_exit_flag = 1;
 		PostQuitMessage(0);
 		return 0; /* We've just sent our own quit message, with proper hwnd. */
+
 	default:
 		if (msg == s_uTaskbarRestart)
 			Shell_NotifyIcon(NIM_ADD, &TrayIcon);
@@ -2475,10 +2530,17 @@ main(int argc, char *argv[])
 }
 - (void)editConfig
 {
-	create_config_file(g_ctx, g_config_file);
-	[[NSWorkspace sharedWorkspace]
-	           openFile:[NSString stringWithUTF8String:g_config_file]
-	    withApplication:@"TextEdit"];
+	create_config_file(g_ctx, g_config_file_name);
+	NSString *path = [NSString stringWithUTF8String:g_config_file_name];
+	if (![[NSWorkspace sharedWorkspace] openFile:path
+	                             withApplication:@"TextEdit"]) {
+		NSAlert *alert = [[[NSAlert alloc] init] autorelease];
+		[alert setAlertStyle:NSWarningAlertStyle];
+		[alert setMessageText:NSLocalizedString(@"Unable to open config file.",
+		                                        "")];
+		[alert setInformativeText:path];
+		(void)[alert runModal];
+	}
 }
 - (void)shutDown
 {
@@ -2546,7 +2608,7 @@ main(int argc, char *argv[])
 	[NSApp activateIgnoringOtherApps:YES];
 	[NSApp run];
 
-	stop_civetweb(g_ctx);
+	stop_civetweb();
 
 	return EXIT_SUCCESS;
 }

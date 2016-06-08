@@ -382,12 +382,27 @@ must be called error404.ext, error4xx.ext or error.ext, whereas the file
 extention may be one of the extentions specified for the index_files option.
 See the [Wikipedia page on HTTP status codes](http://en.wikipedia.org/wiki/HTTP_status_code).
 
-### tcp\_nodelay `no`
-Enable TCP_NODELAY socket option on client connections, either yes or no.
+### tcp\_nodelay `0`
+Enable TCP_NODELAY socket option on client connections.
 
-If set the socket option will disable Nagle's algorithm on the connection 
-which means that packets will be sent as soon as possible instead of waiting 
+If set the socket option will disable Nagle's algorithm on the connection
+which means that packets will be sent as soon as possible instead of waiting
 for a full buffer or timeout to occur.
+
+    0    Keep the default: Nagel's algorithm enabled
+    1    Disable Nagel's algorithm for all sockets
+
+### static\_file\_max\_age `3600`
+Set the maximum time (in seconds) a cache may store a static files.
+
+This option will set the `Cache-Control: max-age` value for static files.
+Dynamically generated content, i.e., content created by a script or callback,
+must send cache control headers by themselfes.
+
+A value >0 corresponds to a maximum allowed caching time in seconds.
+This value should not exceed one year (RFC 2616, Section 14.21).
+A value of 0 will send "do not cache" headers for all static files.
+For values <0 and values >31622400, the behavior is undefined.
 
 ### decode\_url `yes`
 URL encoded request strings are decoded in the server, unless it is disabled
@@ -415,7 +430,7 @@ than the depth set here connection is refused.
 Loads default trusted certificates locations set at openssl compile time.
 
 ### ssl_cipher_list
-List of ciphers to present to the client. Entries should be separated by 
+List of ciphers to present to the client. Entries should be separated by
 colons, commas or spaces.
 
     ALL           All available ciphers
@@ -435,6 +450,18 @@ SSL3+TLS1.0+TLS1.1+TLS1.2  | 1
 TLS1.0+TLS1.1+TLS1.2 | 2
 TLS1.1+TLS1.2 | 3
 TLS1.2 | 4
+
+### ssl_short_trust `no`
+Enables the use of short lived certificates. This will allow for the certificates
+and keys specified in `ssl_certificate`, `ssl_ca_file` and `ssl_ca_path` to be
+exchanged and reloaded while the server is running.
+
+In an automated environment it is advised to first write the new pem file to
+a different filename and then to rename it to the configured pem file name to
+increase performance while swapping the certificate.
+
+Disk IO performance can be improved when keeping the certificates and keys stored
+on a tmpfs (linux) on a system with very high throughput.
 
 # Lua Scripts and Lua Server Pages
 Pre-built Windows and Mac civetweb binaries have built-in Lua scripting

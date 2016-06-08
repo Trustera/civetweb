@@ -4,12 +4,17 @@
 * bel2125
 * Ben M. Ward
 * brett
+* Bjoern Petri
 * Brian Lambert
 * Brian Spratke
 * cdbishop
 * celeron55
+* Charles Olivi
+* Christian Mauderer
+* Christopher Galas
 * cjh
 * Daniel Oaks
+* Daniel Rempel
 * Danny Al-Gaaf
 * David Arnold
 * David Loffredo
@@ -21,25 +26,36 @@
 * grenclave
 * hansipie
 * HariKamath Kamath
+* Jack
+* Jacob Skillin
 * Jan Willem Janssen
 * Jeremy Lin
 * Jim Evans
 * jmc-
 * Jochen Scheib
 * Joe Mucchiello
+* Joel Gallant
+* Johan De Taeye
 * Jordan
 * Jordan Shelley
+* Joshua Boyd
+* Joshua D. Boyd
 * kalphamon
 * Keith Kyzivat
 * Kevin Wojniak
 * Kimmo Mustonen
 * Lawrence
+* Li Peng
 * Lianghui
 * Maarten Fremouw
+* makrsmark
 * Mark Lakata
+* Martin Gaida
 * Mateusz Gralka
 * Matt Clarkson
+* mingodad
 * Morgan McGuire
+* Neil Jensen
 * Nick Hildebrant
 * Nigel Stewart
 * nihildeb
@@ -55,15 +71,17 @@
 * shantanugadgil
 * Scott Nations
 * sunfch
+* thewaterymoon
 * Thomas Davis
 * tnoho
 * Toni Wilk
 * Ulrich Hertlein
+* Walt Steverson
 * William Greathouse
 * Yehuda Sadeh
 
 # Mongoose Contributors
-Civetweb is based on the Mongoose code.  The following users contributed to the original Mongoose release between 2010 and 2013.  This list was generated from the Mongoose GIT logs.  There is no record for contributors prior to 2010.
+Civetweb is based on the Mongoose code.  The following users contributed to the original Mongoose release between 2010 and 2013.  This list was generated from the Mongoose GIT logs.  It does not contain contributions from the Mongoose mailing list.  There is no record for contributors prior to 2010.
 
 * Sergey Lyubka
 * Arnout Vandecappelle (Essensium/Mind)

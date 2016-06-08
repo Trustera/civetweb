@@ -1,4 +1,4 @@
-/* Copyright (c) 2015 the Civetweb developers
+/* Copyright (c) 2015-2016 the Civetweb developers
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,7 +24,9 @@
  * static functions
  */
 #ifdef _MSC_VER
+#ifndef _CRT_SECURE_NO_WARNINGS
 #define _CRT_SECURE_NO_WARNINGS
+#endif
 #define CIVETWEB_API static
 #endif
 
@@ -43,6 +45,7 @@
  * The API documentation is available here:
  * http://check.sourceforge.net/doc/check_html/index.html
  */
+
 
 START_TEST(test_parse_http_message)
 {
@@ -97,6 +100,7 @@ START_TEST(test_parse_http_message)
 }
 END_TEST
 
+
 START_TEST(test_should_keep_alive)
 {
 	/* Adapted from unit_test.c */
@@ -144,6 +148,7 @@ START_TEST(test_should_keep_alive)
 }
 END_TEST
 
+
 START_TEST(test_match_prefix)
 {
 	/* Adapted from unit_test.c */
@@ -180,6 +185,7 @@ START_TEST(test_match_prefix)
 }
 END_TEST
 
+
 START_TEST(test_remove_double_dots_and_double_slashes)
 {
 	/* Adapted from unit_test.c */
@@ -208,6 +214,7 @@ START_TEST(test_remove_double_dots_and_double_slashes)
 }
 END_TEST
 
+
 START_TEST(test_is_valid_uri)
 {
 	/* is_valid_uri is superseeded by get_uri_type */
@@ -224,6 +231,7 @@ START_TEST(test_is_valid_uri)
 	ck_assert_int_eq(4, get_uri_type("https://somewhere:8080/some/file.html"));
 }
 END_TEST
+
 
 START_TEST(test_next_option)
 {
@@ -244,6 +252,7 @@ START_TEST(test_next_option)
 	}
 }
 END_TEST
+
 
 START_TEST(test_skip_quoted)
 {
@@ -267,6 +276,7 @@ START_TEST(test_skip_quoted)
 }
 END_TEST
 
+
 static int
 alloc_printf(char **buf, size_t size, const char *fmt, ...)
 {
@@ -281,6 +291,20 @@ alloc_printf(char **buf, size_t size, const char *fmt, ...)
 	return ret;
 }
 
+
+static int
+alloc_printf2(char **buf, const char *fmt, ...)
+{
+	/* Test alternative implementation */
+	va_list ap;
+	int ret = 0;
+	va_start(ap, fmt);
+	ret = alloc_vprintf2(buf, fmt, ap);
+	va_end(ap);
+	return ret;
+}
+
+
 START_TEST(test_alloc_vprintf)
 {
 	/* Adapted from unit_test.c */
@@ -290,15 +314,66 @@ START_TEST(test_alloc_vprintf)
 
 	ck_assert(alloc_printf(&p, sizeof(buf), "%s", "hi") == 2);
 	ck_assert(p == buf);
+
 	ck_assert(alloc_printf(&p, sizeof(buf), "%s", "") == 0);
+	ck_assert(p == buf);
+
 	ck_assert(alloc_printf(&p, sizeof(buf), "") == 0);
+	ck_assert(p == buf);
 
 	/* Pass small buffer, make sure alloc_printf allocates */
 	ck_assert(alloc_printf(&p, 1, "%s", "hello") == 5);
 	ck_assert(p != buf);
 	mg_free(p);
+	p = buf;
+
+	/* Test alternative implementation */
+	ck_assert(alloc_printf2(&p, "%s", "hello") == 5);
+	ck_assert(p != buf);
+	mg_free(p);
+	p = buf;
 }
 END_TEST
+
+
+START_TEST(test_mg_vsnprintf)
+{
+	char buf[16];
+	int trunc;
+
+	memset(buf, 0, sizeof(buf));
+
+	trunc = 777;
+	mg_snprintf(NULL, &trunc, buf, 10, "%8i", 123);
+	ck_assert_str_eq(buf, "     123");
+	ck_assert_int_eq(trunc, 0);
+
+	trunc = 777;
+	mg_snprintf(NULL, &trunc, buf, 10, "%9i", 123);
+	ck_assert_str_eq(buf, "      123");
+	ck_assert_int_eq(trunc, 0);
+
+	trunc = 777;
+	mg_snprintf(NULL, &trunc, buf, 9, "%9i", 123);
+	ck_assert_str_eq(buf, "      12");
+	ck_assert_int_eq(trunc, 1);
+
+	trunc = 777;
+	mg_snprintf(NULL, &trunc, buf, 8, "%9i", 123);
+	ck_assert_str_eq(buf, "      1");
+	ck_assert_int_eq(trunc, 1);
+
+	trunc = 777;
+	mg_snprintf(NULL, &trunc, buf, 7, "%9i", 123);
+	ck_assert_str_eq(buf, "      ");
+	ck_assert_int_eq(trunc, 1);
+
+	strcpy(buf, "1234567890");
+	mg_snprintf(NULL, &trunc, buf, 0, "%i", 543);
+	ck_assert_str_eq(buf, "1234567890");
+}
+END_TEST
+
 
 START_TEST(test_mg_strcasestr)
 {
@@ -313,6 +388,7 @@ START_TEST(test_mg_strcasestr)
 	ck_assert(mg_strcasestr("aa", "AAB") == NULL);
 }
 END_TEST
+
 
 START_TEST(test_parse_port_string)
 {
@@ -352,6 +428,7 @@ START_TEST(test_parse_port_string)
 	}
 }
 END_TEST
+
 
 START_TEST(test_encode_decode)
 {
@@ -509,6 +586,67 @@ START_TEST(test_mask_data)
 END_TEST
 
 
+START_TEST(test_parse_date_string)
+{
+#if !defined(NO_CACHING)
+	time_t now = time(0);
+	struct tm *tm = gmtime(&now);
+	char date[64] = {0};
+	unsigned long i;
+
+	ck_assert_uint_eq((unsigned long)parse_date_string("1/Jan/1970 00:01:02"),
+	                  62ul);
+	ck_assert_uint_eq((unsigned long)parse_date_string("1 Jan 1970 00:02:03"),
+	                  123ul);
+	ck_assert_uint_eq((unsigned long)parse_date_string("1-Jan-1970 00:03:04"),
+	                  184ul);
+	ck_assert_uint_eq((unsigned long)parse_date_string(
+	                      "Xyz, 1 Jan 1970 00:04:05"),
+	                  245ul);
+
+	gmt_time_string(date, sizeof(date), &now);
+	ck_assert_uint_eq((uintmax_t)parse_date_string(date), (uintmax_t)now);
+
+	sprintf(date,
+	        "%02u %s %04u %02u:%02u:%02u",
+	        tm->tm_mday,
+	        month_names[tm->tm_mon],
+	        tm->tm_year + 1900,
+	        tm->tm_hour,
+	        tm->tm_min,
+	        tm->tm_sec);
+	ck_assert_uint_eq((uintmax_t)parse_date_string(date), (uintmax_t)now);
+
+	gmt_time_string(date, 1, NULL);
+	ck_assert_str_eq(date, "");
+	gmt_time_string(date, 6, NULL);
+	ck_assert_str_eq(date,
+	                 "Thu, "); /* part of "Thu, 01 Jan 1970 00:00:00 GMT" */
+	gmt_time_string(date, sizeof(date), NULL);
+	ck_assert_str_eq(date, "Thu, 01 Jan 1970 00:00:00 GMT");
+
+	for (i = 2ul; i < 0x8000000ul; i += i / 2) {
+		now = (time_t)i;
+
+		gmt_time_string(date, sizeof(date), &now);
+		ck_assert_uint_eq((uintmax_t)parse_date_string(date), (uintmax_t)now);
+
+		tm = gmtime(&now);
+		sprintf(date,
+		        "%02u-%s-%04u %02u:%02u:%02u",
+		        tm->tm_mday,
+		        month_names[tm->tm_mon],
+		        tm->tm_year + 1900,
+		        tm->tm_hour,
+		        tm->tm_min,
+		        tm->tm_sec);
+		ck_assert_uint_eq((uintmax_t)parse_date_string(date), (uintmax_t)now);
+	}
+#endif
+}
+END_TEST
+
+
 Suite *
 make_private_suite(void)
 {
@@ -519,6 +657,7 @@ make_private_suite(void)
 	TCase *const tcase_internal_parse = tcase_create("Internal Parsing");
 	TCase *const tcase_encode_decode = tcase_create("Encode Decode");
 	TCase *const tcase_mask_data = tcase_create("Mask Data");
+	TCase *const tcase_parse_date_string = tcase_create("Date Parsing");
 
 	tcase_add_test(tcase_http_message, test_parse_http_message);
 	tcase_add_test(tcase_http_message, test_should_keep_alive);
@@ -536,6 +675,7 @@ make_private_suite(void)
 	tcase_add_test(tcase_internal_parse, test_skip_quoted);
 	tcase_add_test(tcase_internal_parse, test_mg_strcasestr);
 	tcase_add_test(tcase_internal_parse, test_alloc_vprintf);
+	tcase_add_test(tcase_internal_parse, test_mg_vsnprintf);
 	tcase_add_test(tcase_internal_parse, test_parse_port_string);
 	tcase_set_timeout(tcase_internal_parse, civetweb_min_test_timeout);
 	suite_add_tcase(suite, tcase_internal_parse);
@@ -548,5 +688,23 @@ make_private_suite(void)
 	tcase_set_timeout(tcase_mask_data, civetweb_min_test_timeout);
 	suite_add_tcase(suite, tcase_mask_data);
 
+	tcase_add_test(tcase_parse_date_string, test_parse_date_string);
+	tcase_set_timeout(tcase_mask_data, civetweb_min_test_timeout);
+	suite_add_tcase(suite, tcase_parse_date_string);
+
 	return suite;
 }
+
+
+#ifdef REPLACE_CHECK_FOR_LOCAL_DEBUGGING
+/* Used to debug test cases without using the check framework */
+
+void
+MAIN_PRIVATE(void)
+{
+	test_alloc_vprintf(0);
+	test_mg_vsnprintf(0);
+	test_parse_date_string(0);
+}
+
+#endif

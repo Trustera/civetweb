@@ -5,6 +5,11 @@
 * License http://opensource.org/licenses/mit-license.php MIT License
 */
 
+/* This example is superseeded by other examples, and no longer 
+ * actively maintained.
+ * See examples/embedded_c for an up to date example.
+ */
+
 // Simple example program on how to use websocket client embedded C interface.
 #ifdef _WIN32
 #include <Windows.h>
@@ -81,7 +86,7 @@ websocket_server_data(struct mg_connection *conn,
                       void *_ignored)
 #endif
 {
-	printf("Server: Got %u bytes from the client\n", data_len);
+	printf("Server: Got %lu bytes from the client\n", (unsigned long)data_len);
 	printf("Server received data from client: ");
 	fwrite(data, 1, data_len, stdout);
 	printf("\n");

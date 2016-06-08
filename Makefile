@@ -197,6 +197,7 @@ help:
 	@echo "   NO_SSL                disable SSL functionality"
 	@echo "   NO_SSL_DL             link against system libssl library"
 	@echo "   NO_FILES              do not serve files from a directory"
+	@echo "   NO_CACHING            disable caching (usefull for systems without timegm())"
 	@echo "   MAX_REQUEST_SIZE      maximum header size, default 16384"
 	@echo ""
 	@echo " Variables"
@@ -253,6 +254,7 @@ clean:
 	$(RMRF) lib$(CPROG).so.$(major)
 	$(RMRF) lib$(CPROG).so.$(version).0
 	$(RMRF) $(CPROG)
+	$(RMF) $(UNIT_TEST_PROG)
 
 distclean: clean
 	@$(RMRF) VS2012/Debug VS2012/*/Debug  VS2012/*/*/Debug
@@ -277,7 +279,7 @@ lib$(CPROG).dll: CFLAGS += -fPIC
 lib$(CPROG).dll: $(LIB_OBJECTS)
 	$(LCC) -shared -o $@ $(CFLAGS) $(LDFLAGS) $(LIB_OBJECTS) $(LIBS) -Wl,--out-implib,lib$(CPROG).dll.a
 
-$(UNIT_TEST_PROG): CFLAGS += -Isrc
+$(UNIT_TEST_PROG): CFLAGS += -Isrc -g
 $(UNIT_TEST_PROG): $(LIB_SOURCES) $(LIB_INLINE) $(UNIT_TEST_SOURCES) $(BUILD_OBJECTS)
 	$(LCC) -o $@ $(CFLAGS) $(LDFLAGS) $(UNIT_TEST_SOURCES) $(BUILD_OBJECTS) $(LIBS)
 
