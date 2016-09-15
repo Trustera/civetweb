@@ -145,7 +145,7 @@ mg_static_assert(sizeof(void *) >= sizeof(int), "data type size check");
     #define MAC_OS_X_VERSION_10_12 101200
   #endif
 #endif
-#define CIVETWEB_APPLE_HAVE_CLOCK_GETTIME defined(__APPLE__) && MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_12
+#define CIVETWEB_APPLE_HAVE_CLOCK_GETTIME defined(__APPLE__) && (MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_12 || __IPHONE_OS_VERSION_MIN_REQUIRED >= 100000)
 
 #if !(CIVETWEB_APPLE_HAVE_CLOCK_GETTIME)
 /* clock_gettime is not implemented on OSX prior to 10.12 */
